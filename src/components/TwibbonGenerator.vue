@@ -5,7 +5,7 @@
       v-model="name"
       type="text"
       class="form-control my-3"
-      placeholder="Masukkan Nama"
+      placeholder="Insert your name"
     />
     <button
       class="btn btn-primary btn-md d-flex align-items-center justify-content-center gap-2 mx-auto"
@@ -23,89 +23,139 @@
 
     <canvas ref="canvas" class="mt-3 d-none"></canvas>
 
-    <div v-if="imageUrl" class="button-download gap-2 mt-2">
-      <a
-        :href="imageUrl"
-        :download="downloadFileName"
-        class="btn btn-success w-100"
-        >Download</a
-      >
-      <button @click="shareImage" class="btn btn-secondary w-100">Share</button>
+    <div v-if="imageUrl.length > 0" class="mt-3">
+      <div class="d-flex flex-column align-items-center">
+        <div
+          v-for="(url, index) in imageUrl"
+          :key="index"
+          class="text-center mb-3"
+        >
+          <img :src="url" class="img-thumbnail" width="250" />
+          <div class="d-flex flex-column align-items-center gap-2">
+            <a
+              :href="url"
+              :download="downloadFileName(index)"
+              class="btn btn-success w-100"
+              >Download</a
+            >
+            <button
+              @click="shareImage(url, index)"
+              class="btn btn-secondary w-100"
+            >
+              Share
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref } from "vue";
 
 const name = ref("");
-const imageUrl = ref(null);
+const imageUrl = ref([]);
 const canvas = ref(null);
 const isGenerating = ref(false);
+const twibbonImages = ["/twibbon1.jpg", "/twibbon2.jpg", "/twibbon3.jpg"];
 
-const downloadFileName = computed(() => {
+const downloadFileName = (index) => {
   const sanitized = name.value.trim().replace(/\s+/g, "-").toLowerCase();
   return sanitized
-    ? `twibbon-idul-fitri-${sanitized}.png`
-    : "twibbon-idul-fitri.png";
-});
+    ? `twibbon-${index + 1}-${sanitized}.png`
+    : `twibbon-${index + 1}.png`;
+};
 
 const generateTwibbon = () => {
   if (!name.value.trim()) return;
   isGenerating.value = true;
+  imageUrl.value = [];
 
   const ctx = canvas.value.getContext("2d");
+  const generateImage = (src, index) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = src;
+      img.onload = () => {
+        const targetWidth = 410;
+        const targetHeight = 512;
+        canvas.value.width = targetWidth;
+        canvas.value.height = targetHeight;
 
-  const img = new Image();
-  img.src = "/twibbon.jpg";
-  img.onload = () => {
-    const targetWidth = 410;
-    const targetHeight = 512;
+        const boxX = 80;
+        const boxY = 420;
+        const boxWidth = 250;
+        const boxHeight = 40;
 
-    const aspectRatio = img.width / img.height;
-    let newWidth = targetWidth;
-    let newHeight = targetHeight;
+        ctx.clearRect(0, 0, targetWidth, targetHeight);
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
-    if (img.width > img.height) {
-      newHeight = targetWidth / aspectRatio;
-    } else {
-      newWidth = targetHeight * aspectRatio;
-    }
+        ctx.font = "bold 17px Montserrat";
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        // ctx.fillText(name.value, targetWidth / 2, targetHeight - 40);
+        ctx.fillText(name.value, boxX + boxWidth / 2, boxY + boxHeight / 2 + 6);
 
-    canvas.value.width = targetWidth;
-    canvas.value.height = targetHeight;
-    canvas.value.classList.remove("d-none");
-
-    ctx.drawImage(img, 0, 0, newWidth, newHeight);
-
-    const boxX = 80;
-    const boxY = 395;
-    const boxWidth = 250;
-    const boxHeight = 40;
-
-    // Fill name to image
-    ctx.font = "bold 15px Montserrat";
-    ctx.fillStyle = "yellow";
-    ctx.textAlign = "center";
-    // ctx.fillText(name.value, targetWidth / 2, targetHeight - 40);
-    ctx.fillText(name.value, boxX + boxWidth / 2, boxY + boxHeight / 2 + 6);
-
-    imageUrl.value = canvas.value.toDataURL("image/png");
-
-    isGenerating.value = false;
+        imageUrl.value.push(canvas.value.toDataURL("images/png"));
+        resolve();
+      };
+    });
   };
+
+  Promise.all(
+    twibbonImages.map((src, index) => generateImage(src, index))
+  ).then(() => {
+    isGenerating.value = false;
+  });
+
+  // img.onload = () => {
+  //   const targetWidth = 410;
+  //   const targetHeight = 512;
+
+  //   const aspectRatio = img.width / img.height;
+  //   let newWidth = targetWidth;
+  //   let newHeight = targetHeight;
+
+  //   if (img.width > img.height) {
+  //     newHeight = targetWidth / aspectRatio;
+  //   } else {
+  //     newWidth = targetHeight * aspectRatio;
+  //   }
+
+  //   canvas.value.width = targetWidth;
+  //   canvas.value.height = targetHeight;
+  //   canvas.value.classList.remove("d-none");
+
+  //   ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+  //   const boxX = 80;
+  //   const boxY = 395;
+  //   const boxWidth = 250;
+  //   const boxHeight = 40;
+
+  //   ctx.font = "bold 15px Montserrat";
+  //   ctx.fillStyle = "yellow";
+  //   ctx.textAlign = "center";
+  //   // ctx.fillText(name.value, targetWidth / 2, targetHeight - 40);
+  //   ctx.fillText(name.value, boxX + boxWidth / 2, boxY + boxHeight / 2 + 6);
+
+  //   imageUrl.value = canvas.value.toDataURL("image/png");
+
+  //   isGenerating.value = false;
+  // };
 };
 
-const shareImage = async () => {
-  if (!imageUrl.value || !navigator.canShare) {
+const shareImage = async (url, index) => {
+  if (!navigator.canShare) {
     alert("Sharing tidak didukung di perangkat ini.");
     return;
   }
 
   try {
-    const response = await fetch(imageUrl.value);
+    const response = await fetch(url);
     const blob = await response.blob();
-    const file = new File([blob], downloadFileName.value, {
+    const file = new File([blob], downloadFileName(index), {
       type: "image/png",
     });
 
@@ -130,14 +180,12 @@ img {
   max-width: 100%;
   height: auto;
 }
-div {
-  font-family: "Montserrat", sans-serif;
-  border: 2px solid #e3e6ed;
-  box-shadow: none;
-}
 .container {
   padding: 20px;
   border-radius: 10px;
+  font-family: "Montserrat", sans-serif;
+  border: 2px solid #e3e6ed;
+  box-shadow: none;
 }
 input.form-control {
   border: 1px solid #e3e6ed;
